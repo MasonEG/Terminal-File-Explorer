@@ -95,6 +95,7 @@ fn main() -> Result<(), Error> {
                cursor::Goto(1, 1),
                termion::clear::CurrentLine)
                 .unwrap();
+        print!("{}", termion::clear::All);
 
         // print the dirs
         print!("{}", dir_color);
@@ -134,6 +135,12 @@ fn main() -> Result<(), Error> {
                 let mut path = env::current_dir().unwrap();
                 path.pop();
                 *dir_contents = updateDir(path).unwrap();
+                *dir_index = 0;
+            },
+            Key::Char('l') => {
+                let path = dir_contents.dirs.get(*dir_index).unwrap().path.clone();
+                *dir_contents = updateDir(path).unwrap();
+                *dir_index = 0;
             },
             Key::Char(c) => println!("{}", c),
             Key::Alt(c) => println!("^{}", c),
