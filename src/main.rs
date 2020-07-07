@@ -66,8 +66,20 @@ fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
                 None
             })    
             .collect()
-        })
-    }
+    })
+}
+
+fn get_working_dir() -> PathBuf {
+    let path_str = env::var("PWD").expect("Failed to get working directory");
+
+    return PathBuf::from(path_str);
+}
+
+fn set_current_dir(p: PathBuf) {
+    let path_str = p.to_str().expect("Failed to convert stored path into string :^|");
+
+    env::set_var("PWD", path_str);
+}
 
 fn main() -> Result<(), Error> {
     let current_dir: PathBuf = env::current_dir()?;
@@ -79,6 +91,7 @@ fn main() -> Result<(), Error> {
     let mut stdout = stdout().into_raw_mode().unwrap();
     let mut dir_index = &mut 0;
     let mut input = &mut stdin.keys();
+    let (window_height, window_width) = &termion::terminal_size().expect("Failed to retrieve size of terminal");
 
     write!(stdout,
            "{}{}q to exit. Type stuff, use alt, and so on.{}",
@@ -116,13 +129,25 @@ fn main() -> Result<(), Error> {
         for f in &dir_contents.files {
             println!("\r{}", f);
         }
+
+        //print the directory
+        print!("{}{}", color::Fg(color::Yellow), color::Bg(color::Blue));
+        cursor::Goto(*window_height, 1);
+        print!("{}", dir_contents.path.to_str().expect("Failed to translate the stored directory path to a string")); 
+
+        //reset colorscheme
+        print!("{}{}", color::Fg(color::Reset), color::Bg(color::Reset));
         
         // handle keyboard events
         let c = input.next();
         match c.unwrap().unwrap() {
-            Key::Char('q') => break,
+            Key::Char('q') => {
+                env::set_current_dir(dir_contents.path.as_path()).is_ok();
+                break;
+            },
             Key::Char('j') => {
-                if *dir_index < (dir_contents.dirs.len()  - 1) {
+                let dir_count = dir_contents.dirs.len();
+                if dir_count > 0 && *dir_index < (dir_count  - 1) {
                     *dir_index += 1;
                 }
             },
@@ -132,22 +157,24 @@ fn main() -> Result<(), Error> {
                 }
             },
             Key::Char('h') => {
-                let mut path = env::current_dir().unwrap();
+                let mut path = dir_contents.path.clone();
                 path.pop();
                 *dir_contents = updateDir(path).unwrap();
                 *dir_index = 0;
             },
             Key::Char('l') => {
-                let path = dir_contents.dirs.get(*dir_index).unwrap().path.clone();
-                *dir_contents = updateDir(path).unwrap();
-                *dir_index = 0;
+                if dir_contents.dirs.len() > 0 {
+                    let path = dir_contents.dirs.get(*dir_index).unwrap().path.clone();
+                    *dir_contents = updateDir(path).unwrap();
+                    *dir_index = 0;
+                }
             },
-            Key::Char(c) => println!("{}", c),
-            Key::Alt(c) => println!("^{}", c),
-            Key::Ctrl(c) => println!("*{}", c),
             _ => {}
         }
         stdout.flush().unwrap();
     }
+
+    // TODO: reset the cursor
+
     Ok(())
 }
