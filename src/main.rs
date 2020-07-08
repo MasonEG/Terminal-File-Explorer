@@ -26,7 +26,7 @@ struct DirBuffer {
 }
 
 
-fn findFileNameFromPathBuf(p: PathBuf) -> String {
+fn find_file_name(p: PathBuf) -> String {
     let os_str: &OsStr = match p.file_name() {
         Some(s) => s,
         None => panic!(format!("Failed to grab OS string from path: {:?}", p)),
@@ -41,7 +41,7 @@ fn findFileNameFromPathBuf(p: PathBuf) -> String {
 }
 
 
-fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
+fn update_dir(path: PathBuf) -> Result<DirBuffer, Error> {
     let dir_contents: Vec<PathBuf> = read_dir(path.clone())?
         .map(|p| p.unwrap().path())
         .collect(); 
@@ -53,7 +53,7 @@ fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
                 if p.is_dir() {
                     return Some(Dir {
                         path: p.clone(),
-                        name: findFileNameFromPathBuf(p.clone())
+                        name: find_file_name(p.clone())
                         });
                 }
                 None
@@ -61,7 +61,7 @@ fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
             .collect(),
         files: dir_contents.into_iter().filter_map(|p| {
                 if p.is_file() {
-                    return Some(findFileNameFromPathBuf(p))
+                    return Some(find_file_name(p))
                 }
                 None
             })    
@@ -69,6 +69,7 @@ fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
     })
 }
 
+// TODO: get this to work
 fn set_current_dir(p: PathBuf) {
     let path_str = p.to_str().expect("Failed to convert stored path into string :^|");
 
@@ -76,23 +77,17 @@ fn set_current_dir(p: PathBuf) {
 }
 
 fn main() -> Result<(), Error> {
-    let current_dir: PathBuf = env::current_dir()?;
-    let mut dir_contents: &mut DirBuffer = &mut updateDir(current_dir).unwrap();
     let dir_color = &color::Fg(color::Blue);
     let file_color = &color::Fg(color::Green);
     let select_color = &color::Bg(color::Rgb(255, 153, 0)); // orange
-    let stdin = std::io::stdin();
-    let mut stdout = stdout().into_raw_mode().unwrap();
-    let mut dir_index = &mut 0;
-    let mut input = &mut stdin.keys();
 
-    write!(stdout,
-           "{}{}q to exit. Type stuff, use alt, and so on.{}",
-           termion::clear::All,
-           cursor::Goto(1, 1),
-           cursor::Hide)
-           .unwrap();
-    stdout.flush().unwrap();
+    // setup vars for the main loop
+    let mut stdout = stdout().into_raw_mode().unwrap();
+    let stdin = std::io::stdin();
+    let mut input = &mut stdin.keys();
+    let current_dir: PathBuf = env::current_dir()?;
+    let mut dir_contents: &mut DirBuffer = &mut update_dir(current_dir).unwrap();
+    let mut dir_index = &mut 0;
 
     print!("{}", cursor::Hide);
 
@@ -129,10 +124,7 @@ fn main() -> Result<(), Error> {
         let term_dimensions = termion::terminal_size().expect("Failed to retrieve size of terminal");
         let filepath_str: String = String::from(dir_contents.path.clone().to_str().unwrap());
         print!("{}{}", color::Fg(color::Red), color::Bg(color::Green));
-        write!(stdout, 
-            "{}{}",
-            cursor::Goto(1, term_dimensions.1), filepath_str
-        ).unwrap(); // println only works to put text on, I dunno
+        print!("{}{}", cursor::Goto(1, term_dimensions.1), filepath_str);
         stdout.flush().unwrap();
 
         //reset colorscheme
@@ -160,13 +152,13 @@ fn main() -> Result<(), Error> {
             Key::Char('h') => {
                 let mut path = dir_contents.path.clone();
                 path.pop();
-                *dir_contents = updateDir(path).unwrap();
+                *dir_contents = update_dir(path).unwrap();
                 *dir_index = 0;
             },
             Key::Char('l') => {
                 if dir_contents.dirs.len() > 0 {
                     let path = dir_contents.dirs.get(*dir_index).unwrap().path.clone();
-                    *dir_contents = updateDir(path).unwrap();
+                    *dir_contents = update_dir(path).unwrap();
                     *dir_index = 0;
                 }
             },
@@ -175,6 +167,7 @@ fn main() -> Result<(), Error> {
         stdout.flush().unwrap();
     }
 
+    print!("\r{}", termion::clear::All);
     // TODO: reset the cursor
 
     Ok(())
