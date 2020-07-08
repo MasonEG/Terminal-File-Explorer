@@ -69,12 +69,6 @@ fn updateDir(path: PathBuf) -> Result<DirBuffer, Error> {
     })
 }
 
-fn get_working_dir() -> PathBuf {
-    let path_str = env::var("PWD").expect("Failed to get working directory");
-
-    return PathBuf::from(path_str);
-}
-
 fn set_current_dir(p: PathBuf) {
     let path_str = p.to_str().expect("Failed to convert stored path into string :^|");
 
@@ -91,7 +85,6 @@ fn main() -> Result<(), Error> {
     let mut stdout = stdout().into_raw_mode().unwrap();
     let mut dir_index = &mut 0;
     let mut input = &mut stdin.keys();
-    let (window_height, window_width) = &termion::terminal_size().expect("Failed to retrieve size of terminal");
 
     write!(stdout,
            "{}{}q to exit. Type stuff, use alt, and so on.{}",
@@ -100,6 +93,8 @@ fn main() -> Result<(), Error> {
            cursor::Hide)
            .unwrap();
     stdout.flush().unwrap();
+
+    print!("{}", cursor::Hide);
 
     loop {
         // clear out the screen
@@ -131,9 +126,14 @@ fn main() -> Result<(), Error> {
         }
 
         //print the directory
-        print!("{}{}", color::Fg(color::Yellow), color::Bg(color::Blue));
-        cursor::Goto(*window_height, 1);
-        print!("{}", dir_contents.path.to_str().expect("Failed to translate the stored directory path to a string")); 
+        let term_dimensions = termion::terminal_size().expect("Failed to retrieve size of terminal");
+        let filepath_str: String = String::from(dir_contents.path.clone().to_str().unwrap());
+        print!("{}{}", color::Fg(color::Red), color::Bg(color::Green));
+        write!(stdout, 
+            "{}{}",
+            cursor::Goto(1, term_dimensions.1), filepath_str
+        ).unwrap(); // println only works to put text on, I dunno
+        stdout.flush().unwrap();
 
         //reset colorscheme
         print!("{}{}", color::Fg(color::Reset), color::Bg(color::Reset));
@@ -143,6 +143,7 @@ fn main() -> Result<(), Error> {
         match c.unwrap().unwrap() {
             Key::Char('q') => {
                 env::set_current_dir(dir_contents.path.as_path()).is_ok();
+                set_current_dir(dir_contents.path.clone());
                 break;
             },
             Key::Char('j') => {
