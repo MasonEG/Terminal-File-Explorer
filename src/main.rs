@@ -10,6 +10,7 @@ use std::env;
 use std::io::Error;
 use std::vec;
 use std::ffi::OsStr;
+use std::process::{Command, Stdio};
 
 
 #[derive(Clone)]
@@ -69,11 +70,26 @@ fn update_dir(path: PathBuf) -> Result<DirBuffer, Error> {
     })
 }
 
-// TODO: get this to work
+// TODO: get this to work, update: it can't :^(
 fn set_current_dir(p: PathBuf) {
     let path_str = p.to_str().expect("Failed to convert stored path into string :^|");
 
-    env::set_var("PWD", path_str);
+    let output = if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(&["/C", format!("cd {}", path_str).as_str()])
+            .stdout(Stdio::piped())
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to change directories")
+    } else {
+        Command::new("sh")
+            .arg(format!("cd {}", path_str).as_str())
+            .stdout(Stdio::piped())
+            .stdin(Stdio::piped())
+            .spawn()
+            .expect("Failed to change directories")
+    };
+
 }
 
 fn main() -> Result<(), Error> {
@@ -134,7 +150,6 @@ fn main() -> Result<(), Error> {
         let c = input.next();
         match c.unwrap().unwrap() {
             Key::Char('q') => {
-                env::set_current_dir(dir_contents.path.as_path()).is_ok();
                 set_current_dir(dir_contents.path.clone());
                 break;
             },
@@ -166,6 +181,7 @@ fn main() -> Result<(), Error> {
         }
         stdout.flush().unwrap();
     }
+
 
     print!("\r{}", termion::clear::All);
     // TODO: reset the cursor
